@@ -15,6 +15,11 @@ try:
 except ImportError:
     print("wordcloud er ikke installert, kan ikke lage ordskyer")
 
+    
+def sttr(urn, chunk=5000):
+    r = requests.get("https://api.nb.no/ngram/sttr", json = {'urn':urn, 'chunk':chunk})
+    return r.json()
+                     
 def totals(top=200):
     r = requests.get("https://api.nb.no/ngram/totals", json={'top':top})
     return dict(r.json())
@@ -40,20 +45,31 @@ def metadata(urn="""text"""):
     r = requests.get("https://api.nb.no/ngram/meta", params={'urn':urns})
     return r.json()
 
+
 def pure_urn(data):
-    """Convert URN-lists with extra data into list of serial numbers"""
-    if type(data) is list and type(data[0]) is list:
-        try:
-            res = [x[0] for x in data]
-        except:
-            res = []
-    elif type(data) is list and not type(data[0]) is list:
-        res = data
-    elif type(data) is str:
-        res = urn_from_text(data)
-    else:
-        res = []
-    return res
+    """Convert URN-lists with extra data into list of serial numbers.
+
+    Args:
+        data: May be a list of URNs, a list of lists with URNs as their
+            initial element, or a string of raw texts containing URNs
+
+    Returns:
+        List[str]: A list of URNs. Empty list if input is on the wrong
+            format or contains no URNs
+    """
+    if isinstance(data, list):
+        if not data:  # Empty list
+            return []
+        if isinstance(data[0], list):  # List of lists
+            try:
+                return [x[0] for x in data]
+            except IndexError:
+                return []
+        else:  # Assume data is already a list of URNs
+            return data
+    elif isinstance(data, str):
+        return urn_from_text(data)
+    return []
 
 
 def difference(first, second, rf, rs, years=(1980, 2000),smooth=1, corpus='bok'):
@@ -783,6 +799,7 @@ def frame(something, name):
     return res
 
 def get_urns_from_docx(document):
+    """Find all URNs specified in a Word document - typically .docx"""
     import sys
     import zipfile
     import re
@@ -795,6 +812,8 @@ def get_urns_from_docx(document):
     return re.findall("[0-9]{13}", str(soup))
 
 def get_urns_from_text(document):
+    """Find all URNs in a text-file"""
+    
     import re
 
     with open(document) as fp:
@@ -804,6 +823,7 @@ def get_urns_from_text(document):
 
 
 def get_urns_from_files(mappe, file_type='txt'):
+    """Find URNs in files in a folder - specify folder"""
     import os
     froot, _, files = next(os.walk(mappe))
     urns = dict()
@@ -817,6 +837,7 @@ def get_urns_from_files(mappe, file_type='txt'):
     return urns
 
 class Corpus_urn:
+    """Define Corpus with a list of URNs"""
     from IPython.display import HTML, display
     import pandas as pd
     import json
